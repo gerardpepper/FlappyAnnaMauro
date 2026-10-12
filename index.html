@@ -1,11 +1,4 @@
-<!doctype html>
-<html lang="it">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Flappy Annalisa &amp; Mauro</title>
-</head>
-<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Flappy Annalisa &amp; Mauro</title>
 <style>
   :root{
@@ -170,8 +163,13 @@
   .toggle:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-dark);}
   .toggle.off{background:#c9bda9;box-shadow:0 3px 0 #a8987f;}
   input[type=range]{width:100%;accent-color:var(--accent);height:clamp(28px,7cqw,36px);cursor:pointer;}
-  .speed-scale{display:flex;justify-content:space-between;font-size:clamp(11px,3cqw,14px);color:#a08a6a;font-weight:700;}
-  .speed-val{font-size:clamp(14px,4cqw,18px);font-weight:800;color:var(--accent-dark);}
+  .diff-row{display:flex;gap:2cqw;}
+  .diff{
+    flex:1;font-family:inherit;font-weight:800;font-size:clamp(12px,3.4cqw,16px);cursor:pointer;
+    color:#8a7a63;background:#fff;border:3px solid var(--panel-line);border-radius:14px;
+    padding:clamp(8px,2.4cqw,12px) 2px;transition:transform .1s ease,border-color .1s ease,box-shadow .1s ease;
+  }
+  .diff.sel{border-color:var(--accent);color:var(--accent-dark);box-shadow:0 0 0 3px rgba(255,111,145,.22);transform:translateY(-2px);}
   [hidden]{display:none!important;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -217,9 +215,12 @@
         <div class="pick" data-char="coppia4"><canvas width="112" height="112"></canvas><span>Coppia 🚗</span></div>
       </div>
       <div class="opt-row col">
-        <div class="opt-row" style="margin-top:0"><span class="lab">Velocità</span><span class="speed-val" id="speedVal">Normale</span></div>
-        <input type="range" id="speedSlider" min="0.6" max="1.6" step="0.1" value="1">
-        <div class="speed-scale"><span>🐢 Facile</span><span>Difficile 🐇</span></div>
+        <span class="lab">Difficoltà</span>
+        <div class="diff-row">
+          <button class="diff" data-sp="0.8">🐢 Facile</button>
+          <button class="diff" data-sp="1.0">😊 Media</button>
+          <button class="diff" data-sp="1.3">🔥 Difficile</button>
+        </div>
       </div>
       <button class="play" id="optClose">OK</button>
     </div>
@@ -376,6 +377,7 @@
   try { const s = parseFloat(localStorage.getItem('flappySposiSpeed')); if(s>=0.6 && s<=1.6) speedScale = s; } catch(e){}
 
   let bird, pipes, score, spawnTimer, frame, confetti, groundScroll;
+  let fx, goodies, rice, surpriseTimer;   // screen effects, collectibles, rice particles
 
   // drifting clouds (ambient — always moving, even on the menu)
   const clouds = [
@@ -394,6 +396,10 @@
     frame = 0;
     confetti = [];
     groundScroll = 0;
+    fx = { wobble:0, flash:0, wind:0, windV:0, rice:0, night:0 };
+    goodies = [];
+    rice = [];
+    surpriseTimer = 6;   // seconds until the first screen-surprise
     liveScore.textContent = '0';
     hideBanner();
   }
@@ -435,6 +441,22 @@
     const lo = margin + amp, hi = FLOOR - GAP - margin - amp;
     const gapY = lo + Math.random()*Math.max(1, hi-lo);
     pipes.push({ x: W + 20, gapY, base:gapY, amp, moving:evt, phase:Math.random()*6.283, type, scored:false, seed: Math.random()*1000 });
+  }
+
+  // ---- extra surprises: screen effects + bonus collectibles ----
+  const SURPRISES = ['brindisi','fotografo','vento','riso','sera','olive','bouquet'];
+  function spawnOlive(){ goodies.push({ type:'olive', x:W+30, y:130+Math.random()*(FLOOR-280), r:17, bonus:3, got:false }); }
+  function spawnBouquet(){ goodies.push({ type:'bouquet', x:W+30, y:60+Math.random()*90, vx:-2.3, vy:0.9, r:22, bonus:5, got:false }); }
+  function spawnRice(){ for(let i=0;i<70;i++) rice.push({ x:Math.random()*W, y:-Math.random()*H*0.6, vx:(Math.random()-0.5)*0.5, vy:1.3+Math.random()*1.8, s:3+Math.random()*2 }); }
+  function triggerSurprise(){
+    const s = SURPRISES[(Math.random()*SURPRISES.length)|0];
+    if(s==='brindisi'){ fx.wobble=3.2; showBanner('🥂 Brindisi!'); }
+    else if(s==='fotografo'){ fx.flash=0.6; showBanner('📸 Il fotografo!'); }
+    else if(s==='vento'){ fx.wind=3.2; fx.windV=(Math.random()<0.5?-1:1)*1.3; showBanner('🌬️ Raffica di vento!'); }
+    else if(s==='riso'){ fx.rice=3.4; spawnRice(); showBanner('🎊 Pioggia di riso!'); }
+    else if(s==='sera'){ fx.night=6.0; showBanner('🌙 Sposi di sera'); }
+    else if(s==='olive'){ spawnOlive(); showBanner('🫒 Oliva ascolana: bonus!'); }
+    else { spawnBouquet(); showBanner('💐 Prendi il bouquet!'); }
   }
 
   // ================= DRAWING =================
@@ -828,6 +850,29 @@
         if(!p.scored && p.x+PIPE_W < bird.x){ p.scored=true; score++; liveScore.textContent=score; sfxPoint(); }
         if(hit(p)){ gameOver(); }
       }
+      // ---- surprises: director + effect timers (in seconds) ----
+      const sec = dt/60;
+      surpriseTimer -= sec;
+      if(surpriseTimer<=0){ triggerSurprise(); surpriseTimer = 9 + Math.random()*7; }
+      if(fx.wobble>0) fx.wobble -= sec;
+      if(fx.flash>0)  fx.flash  -= sec*1.6;
+      if(fx.rice>0)   fx.rice   -= sec;
+      if(fx.night>0)  fx.night  -= sec;
+      if(fx.wind>0){ fx.wind -= sec; bird.x += fx.windV*dt; if(bird.x<66)bird.x=66; if(bird.x>176)bird.x=176; }
+      else if(bird.x!==104){ bird.x += (104-bird.x)*Math.min(1,0.06*dt); if(Math.abs(bird.x-104)<0.6) bird.x=104; }
+      // collectibles (olive = slides with the scroll, bouquet = flies diagonally)
+      for(const g of goodies){
+        if(g.type==='olive') g.x -= sp*dt;
+        else { g.x += g.vx*dt; g.y += g.vy*dt; g.vy += 0.015*dt; }
+        if(!g.got){
+          const dx=g.x-bird.x, dy=g.y-bird.y, rr=bird.r*0.82+g.r;
+          if(dx*dx+dy*dy < rr*rr){ g.got=true; score+=g.bonus; liveScore.textContent=score; sfxPoint(); }
+        }
+      }
+      goodies = goodies.filter(g=> !g.got && g.x>-70 && g.x<W+90 && g.y<FLOOR+70);
+      // rice particles
+      for(const pz of rice){ pz.y += pz.vy*dt; pz.x += pz.vx*dt; }
+      rice = rice.filter(pz=> pz.y < FLOOR+10);
       // floor / ceiling
       if(bird.y + bird.r >= FLOOR){ bird.y=FLOOR-bird.r; gameOver(); }
       if(bird.y - bird.r < 0){ bird.y=bird.r; bird.v=0; }
@@ -849,10 +894,46 @@
   }
 
   function render(){
+    ctx.fillStyle='#a9def7'; ctx.fillRect(0,0,W,H);   // base sky (wobble safety)
+    ctx.save();
+    if(fx && fx.wobble>0){ const a=Math.sin(frame*0.2)*0.05*Math.min(1,fx.wobble); ctx.translate(W/2,H/2); ctx.rotate(a); ctx.translate(-W/2,-H/2); }
     drawBackground();
     for(const p of pipes){ (PIPE_DRAWERS[p.type] || drawFlowerPipe)(p); }
+    drawGoodies();
     drawGround();
     if(state!==STATE.OVER) drawBird(); else { drawBird(); drawConfetti(); }
+    ctx.restore();
+    if(fx){
+      if(fx.night>0){ ctx.fillStyle='rgba(18,22,55,'+(0.42*Math.min(1,fx.night)).toFixed(3)+')'; ctx.fillRect(0,0,W,H); }
+      if(fx.rice>0) drawRice();
+      if(fx.flash>0){ ctx.fillStyle='rgba(255,255,255,'+Math.min(0.85,fx.flash).toFixed(3)+')'; ctx.fillRect(0,0,W,H); }
+    }
+  }
+  function drawGoodies(){
+    if(!goodies) return;
+    for(const g of goodies){ if(g.got) continue; (g.type==='olive')? drawOlive(g.x,g.y,g.r) : drawBouquet(g.x,g.y,g.r); }
+  }
+  function drawOlive(x,y,r){
+    ctx.save(); ctx.translate(x,y);
+    ctx.fillStyle='#caa05a'; ctx.beginPath(); ctx.ellipse(0,0,r,r*0.82,0,0,7); ctx.fill();
+    ctx.fillStyle='#a87c38';
+    for(let i=0;i<7;i++){ const a=i*1.3; ctx.beginPath(); ctx.arc(Math.cos(a)*r*0.5,Math.sin(a)*r*0.4,1.7,0,7); ctx.fill(); }
+    ctx.strokeStyle='rgba(120,80,30,.45)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.ellipse(0,0,r,r*0.82,0,0,7); ctx.stroke();
+    ctx.restore();
+  }
+  function drawBouquet(x,y,r){
+    ctx.save(); ctx.translate(x,y);
+    ctx.strokeStyle='#4f9e3f'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(0,r*0.15); ctx.lineTo(-4,r); ctx.moveTo(0,r*0.15); ctx.lineTo(4,r); ctx.stroke();
+    flower(ctx,-r*0.42,-r*0.18,r*0.5,'#ff6f91');
+    flower(ctx, r*0.42,-r*0.18,r*0.5,'#ffd166');
+    flower(ctx,0,-r*0.5,r*0.5,'#f7a5c4');
+    flower(ctx,0,r*0.02,r*0.5,'#ff9770');
+    ctx.restore();
+  }
+  function drawRice(){
+    ctx.fillStyle='rgba(255,255,255,.95)';
+    for(const p of rice){ ctx.save(); ctx.translate(p.x,p.y); ctx.beginPath(); ctx.ellipse(0,0,p.s*0.5,p.s,0,0,7); ctx.fill(); ctx.restore(); }
   }
   function drawConfetti(){
     for(const c of confetti){
@@ -877,6 +958,7 @@
   function gameOver(){
     if(state===STATE.OVER) return;
     state = STATE.OVER;
+    fx = { wobble:0, flash:0, wind:0, windV:0, rice:0, night:0 }; goodies = []; rice = [];
     sfxHit(); stopMusic(); playOutro();
     liveScore.hidden = true;
     finalScore.textContent = score;
@@ -1009,24 +1091,15 @@
   window.addEventListener('pointerdown', playIntroOnce, { once:true });
   window.addEventListener('keydown',    playIntroOnce, { once:true });
 
-  // ---- speed slider (difficulty) ----
-  const speedSlider = document.getElementById('speedSlider');
-  const speedVal = document.getElementById('speedVal');
-  function speedLabel(v){
-    if(v < 0.8)  return 'Molto lenta';
-    if(v < 0.95) return 'Lenta';
-    if(v <= 1.1) return 'Normale';
-    if(v <= 1.3) return 'Veloce';
-    return 'Molto veloce';
-  }
-  function applySpeed(v){
+  // ---- difficulty presets (Facile / Media / Difficile) ----
+  const diffBtns = Array.from(document.querySelectorAll('.diff'));
+  function applyDiff(v){
     speedScale = v;
-    speedVal.textContent = speedLabel(v);
     try { localStorage.setItem('flappySposiSpeed', String(v)); } catch(e){}
+    diffBtns.forEach(function(b){ b.classList.toggle('sel', Math.abs(parseFloat(b.dataset.sp)-v)<0.01); });
   }
-  speedSlider.value = String(speedScale);
-  applySpeed(speedScale);
-  speedSlider.addEventListener('input', function(){ applySpeed(parseFloat(this.value)); });
+  diffBtns.forEach(function(b){ b.addEventListener('click', function(){ applyDiff(parseFloat(b.dataset.sp)); }); });
+  (function(){ const ps=[0.8,1.0,1.3]; let best=1.0, bd=9; for(const p of ps){ const d=Math.abs(p-speedScale); if(d<bd){bd=d;best=p;} } applyDiff(best); })();
 
   // ---- options open / close ----
   let optReturn = startScreen;   // where to go back to
@@ -1056,5 +1129,4 @@
 })();
 </script>
 
-</body>
-</html>
+</body></html>
